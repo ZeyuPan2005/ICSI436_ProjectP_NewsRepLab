@@ -1,0 +1,82 @@
+{
+  "class_names": [
+    "World",
+    "Sports",
+    "Business",
+    "Sci/Tech"
+  ],
+  "confusion_matrix_rows": "true",
+  "confusion_matrix_columns": "predicted",
+  "confusion_matrix": [
+    [
+      156,
+      9,
+      23,
+      12
+    ],
+    [
+      8,
+      177,
+      8,
+      7
+    ],
+    [
+      14,
+      7,
+      145,
+      34
+    ],
+    [
+      22,
+      7,
+      31,
+      140
+    ]
+  ],
+  "classification_report": {
+    "World": {
+      "precision": 0.78,
+      "recall": 0.78,
+      "f1-score": 0.78,
+      "support": 200.0
+    },
+    "Sports": {
+      "precision": 0.885,
+      "recall": 0.885,
+      "f1-score": 0.885,
+      "support": 200.0
+    },
+    "Business": {
+      "precision": 0.7004830917874396,
+      "recall": 0.725,
+      "f1-score": 0.7125307125307125,
+      "support": 200.0
+    },
+    "Sci/Tech": {
+      "precision": 0.7253886010362695,
+      "recall": 0.7,
+      "f1-score": 0.712468193384224,
+      "support": 200.0
+    },
+    "accuracy": 0.7725,
+    "macro avg": {
+      "precision": 0.7727179232059272,
+      "recall": 0.7725,
+      "f1-score": 0.7724997264787342,
+      "support": 800.0
+    },
+    "weighted avg": {
+      "precision": 0.7727179232059274,
+      "recall": 0.7725,
+      "f1-score": 0.7724997264787342,
+      "support": 800.0
+    }
+  },
+  "learned_coefficient_shape": [
+    4,
+    16431
+  ],
+  "learned_intercept_shape": [
+    4
+  ]
+}

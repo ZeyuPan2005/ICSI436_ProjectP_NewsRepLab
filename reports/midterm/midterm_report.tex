@@ -1,0 +1,59 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[margin=0.66in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype,booktabs,tabularx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\titleformat{\section}{\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{6pt}{2pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+\pagestyle{empty}
+\begin{document}
+\begin{center}
+{\large\bfseries NewsRepLab: Evaluating Pretrained Text Representations\\
+for News Classification under Limited Training Data}\par
+\vspace{3pt}
+ICSI436 Project P --- Midterm Progress Report\par
+\textbf{Group 8:} Zeyu Pan, Jiayu Liao, Yuhan Sun
+\end{center}
+\vspace{-5pt}
+\section{Background and problem}
+Labeled news data require annotation effort. We investigate whether pretrained representations improve classification and sample efficiency when task-specific labels are scarce. Using the four-class AG News benchmark (World, Sports, Business, and Sci/Tech)~\cite{agnews}, we compare TF-IDF with frozen \texttt{all-MiniLM-L6-v2} embeddings~\cite{minilm}. Our contribution is a controlled empirical study of representations, rather than a new classifier or loss function.
+
+\section{Methods and experimental design}
+Both pipelines use scikit-learn multiclass Logistic Regression: learned class weights and intercepts define softmax probabilities, optimized with cross-entropy and L2 regularization using L-BFGS. TF-IDF uses word unigrams/bigrams, sublinear term frequency, L2 normalization, and at most 20,000 features; vocabulary and IDF are fitted on training text only. MiniLM supplies normalized 384-dimensional embeddings, extracted with CUDA and cached, while its pretrained parameters remain frozen. Baselines use a common $C=1$; this does not imply equal effective regularization across representations.
+
+Training budgets are 100 and 400, balanced across classes, with the smaller subset nested in the larger for each sampling seed (42, 123, 2026). Both pipelines use identical samples. One fixed, disjoint validation set contains 800 examples (200 per class), drawn from the original training split. Accuracy measures overall correctness; macro-F1 weights classes equally. The official test split remains untouched.
+
+\section{Current progress and results}
+Round 1 established both complete pipelines in a four-configuration pilot. Round 2 completed 12 baseline configurations. The table gives validation percentages as mean $\pm$ sample standard deviation across three training-sampling seeds; these are not confidence intervals.
+\vspace{-2pt}
+\begin{center}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& \multicolumn{2}{c}{100 training examples} & \multicolumn{2}{c}{400 training examples}\\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+Representation & Accuracy & Macro-F1 & Accuracy & Macro-F1\\
+\midrule
+TF-IDF & $66.21\pm2.50$ & $65.72\pm2.64$ & $76.71\pm0.51$ & $76.63\pm0.55$\\
+Frozen MiniLM & $82.38\pm2.18$ & $82.28\pm2.24$ & $84.54\pm0.47$ & $84.53\pm0.46$\\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-5pt}
+MiniLM exceeds TF-IDF for every matched seed and budget on both metrics. Its mean accuracy advantage is 16.17 percentage points at 100 labels and 7.83 at 400; MiniLM at 100 also exceeds TF-IDF at 400 on average. Increasing the budget improves mean accuracy by 10.50 points for TF-IDF and 2.17 for MiniLM, suggesting sample efficiency in these settings, not a proven performance plateau.
+
+Round 3 completed 18 exploratory sensitivity configurations at 400 labels. For $C\in\{0.1,1,10\}$, TF-IDF mean validation accuracies are 76.00\%, 76.71\%, and 77.46\%; MiniLM achieves 84.38\%, 84.54\%, and 83.75\%. Relative to $C=1$, $C=10$ changes accuracy by $+0.75$ and $-0.79$ points, respectively. The $C=1$ scores exactly reproduce Round 2, so they are not independent evidence. This sweep explores sensitivity; it is not fully optimized model selection.
+
+\section{Challenges and planned experiments}
+Three seeds, two budgets, and repeated use of one validation set limit generalization claims. Seed variability describes training-sample sensitivity, not uncertainty across validation splits; no statistical significance or universal superiority is established. Pretraining adds external information, and runtime comparisons require separating setup, extraction, cache access, and classifier fitting. We will expand training budgets; use stratified K-fold cross-validation \emph{within each labeled budget} for hyperparameter selection, fitting TF-IDF inside each fold; evaluate representations more systematically; analyze errors, especially Business versus Sci/Tech; and conduct controlled computational-cost comparisons. After fixing the protocol, we will perform final evaluation on the untouched official test set.
+
+\vspace{-3pt}
+\begin{thebibliography}{2}
+\setlength{\itemsep}{-1pt}\setlength{\parskip}{0pt}\footnotesize
+\bibitem{agnews} X. Zhang, J. Zhao, and Y. LeCun. \emph{Character-level Convolutional Networks for Text Classification}. NeurIPS, 2015. \href{https://arxiv.org/abs/1509.01626}{arXiv:1509.01626}. AG News benchmark attribution.
+\bibitem{minilm} Sentence Transformers. \emph{all-MiniLM-L6-v2 model card}. \url{https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2}. Accessed October 19, 2026.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,13 @@
+seed,representation,metric,repeated_baseline,current,difference,absolute_tolerance,matches
+42,tfidf,validation_accuracy,0.7725,0.7725,0.0,1e-10,True
+42,tfidf,validation_macro_f1,0.7724997264787342,0.7724997264787342,0.0,1e-10,True
+42,minilm,validation_accuracy,0.84,0.84,0.0,1e-10,True
+42,minilm,validation_macro_f1,0.8401217784832682,0.8401217784832682,0.0,1e-10,True
+123,tfidf,validation_accuracy,0.76625,0.76625,0.0,1e-10,True
+123,tfidf,validation_macro_f1,0.7645766419744553,0.7645766419744553,0.0,1e-10,True
+123,minilm,validation_accuracy,0.8475,0.8475,0.0,1e-10,True
+123,minilm,validation_macro_f1,0.8469526471544923,0.8469526471544923,0.0,1e-10,True
+2026,tfidf,validation_accuracy,0.7625,0.7625,0.0,1e-10,True
+2026,tfidf,validation_macro_f1,0.7619597661978981,0.7619597661978981,0.0,1e-10,True
+2026,minilm,validation_accuracy,0.84875,0.84875,0.0,1e-10,True
+2026,minilm,validation_macro_f1,0.8489079573122933,0.8489079573122933,0.0,1e-10,True

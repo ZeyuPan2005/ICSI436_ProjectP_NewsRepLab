@@ -1,0 +1,106 @@
+{
+  "status": "complete",
+  "started_at": "2026-10-19T22:37:07.849247+00:00",
+  "preliminary_single_seed": true,
+  "seed": 42,
+  "python": "3.11.17 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:16:54) [MSC v.1942 64 bit (AMD64)]",
+  "executable": "D:\\Anaconda\\envs\\icsi436-p\\python.exe",
+  "packages": {
+    "numpy": "2.4.6",
+    "torch": "2.11.0+cu128",
+    "datasets": "5.1.0",
+    "sentence-transformers": "6.1.0",
+    "transformers": "5.20.2",
+    "scikit-learn": "1.9.1",
+    "matplotlib": "3.11.2"
+  },
+  "platform": "Windows-10-10.0.26200-SP0",
+  "cpu": "AMD64 Family 25 Model 116 Stepping 1, AuthenticAMD",
+  "cpu_count": 16,
+  "dataset": "fancyzhx/ag_news",
+  "dataset_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+  "split": "train",
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "dataset_cache": "D:\\hf_cache\\datasets",
+  "model_cache": "D:\\大学\\UAlbany\\Courses\\ICSI436 Machine Learning\\Project\\ICSI436_ProjectP_NewsRepLab\\.cache\\sentence_transformers",
+  "embedding_cache": "D:\\大学\\UAlbany\\Courses\\ICSI436 Machine Learning\\Project\\ICSI436_ProjectP_NewsRepLab\\.cache\\pilot_embeddings",
+  "classifier_settings": {
+    "C": 1.0,
+    "l1_ratio": 0.0,
+    "solver": "lbfgs",
+    "max_iter": 2000,
+    "tol": 0.0001,
+    "fit_intercept": true,
+    "random_state": 42
+  },
+  "tfidf_settings": {
+    "lowercase": true,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "max_features": 20000,
+    "sublinear_tf": true,
+    "norm": "l2"
+  },
+  "import_seconds": 0.11914720000004309,
+  "script_sha256": "8b418f2029a90b7d6fc7475d2bb760a719604239c68fe5425c7639f5d74fe94f",
+  "setup_timings": {
+    "dataset_load_seconds_including_possible_download": 0.33203209999919636,
+    "model_load_seconds_including_possible_download": 0.39918110000053275,
+    "model_warmup_seconds": 0.08262350000040897
+  },
+  "feature_events": [
+    {
+      "train_size": 100,
+      "train": {
+        "key": "5395145b319782e833e990d40521b8eb9f8f732b98e47152e8482b42d46a70a4",
+        "cache_hit": false,
+        "measured_extraction_seconds": 0.044067200000426965,
+        "compute_this_call_seconds": 0.044067200000426965,
+        "cache_read_seconds": 0.0,
+        "cache_write_seconds": 0.0035064000003330875,
+        "measured_at": "2026-10-19T22:37:10.575458+00:00"
+      },
+      "validation": {
+        "key": "36e728e4c61c335f13d758fbaad61aee2bd3535a25de7b25eaca3e680d910e9f",
+        "cache_hit": false,
+        "measured_extraction_seconds": 0.5498225000001185,
+        "compute_this_call_seconds": 0.5498225000001185,
+        "cache_read_seconds": 0.0,
+        "cache_write_seconds": 0.004296199999771488,
+        "measured_at": "2026-10-19T22:37:10.525497+00:00"
+      }
+    },
+    {
+      "train_size": 400,
+      "train": {
+        "key": "6c8a7b0b35c84da3cdf9a951828c97d9663f8abd0f7814c738f095d179f87d1a",
+        "cache_hit": false,
+        "measured_extraction_seconds": 0.17318989999967016,
+        "compute_this_call_seconds": 0.17318989999967016,
+        "cache_read_seconds": 0.0,
+        "cache_write_seconds": 0.003961600000366161,
+        "measured_at": "2026-10-19T22:37:10.782795+00:00"
+      },
+      "validation": {
+        "key": "36e728e4c61c335f13d758fbaad61aee2bd3535a25de7b25eaca3e680d910e9f",
+        "cache_hit": true,
+        "measured_extraction_seconds": 0.5498225000001185,
+        "compute_this_call_seconds": 0.0,
+        "cache_read_seconds": 0.0,
+        "cache_write_seconds": 0.0,
+        "measured_at": "2026-10-19T22:37:10.525497+00:00"
+      }
+    }
+  ],
+  "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "cuda_build": "12.8",
+  "torch_cpu_threads": 8,
+  "dataset_fingerprint": "2bc1e2be15d7f2ee",
+  "max_sequence_length": 256,
+  "finished_at": "2026-10-19T22:37:10.988148+00:00",
+  "experiment_count": 4
+}

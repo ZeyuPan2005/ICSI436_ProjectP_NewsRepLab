@@ -1,0 +1,180 @@
+{
+  "status": "complete",
+  "exploratory": true,
+  "started_at": "2026-10-19T23:20:52.944399+00:00",
+  "reference_run": "D:\\大学\\UAlbany\\Courses\\ICSI436 Machine Learning\\Project\\ICSI436_ProjectP_NewsRepLab\\results\\repeated\\20261019T225846_619676Z",
+  "seeds": [
+    42,
+    123,
+    2026
+  ],
+  "C_values": [
+    0.1,
+    1.0,
+    10.0
+  ],
+  "train_size": 400,
+  "validation_size": 800,
+  "classifier_settings_by_C": {
+    "0.1": {
+      "C": 0.1,
+      "l1_ratio": 0.0,
+      "solver": "lbfgs",
+      "max_iter": 2000,
+      "tol": 0.0001,
+      "fit_intercept": true,
+      "random_state": 42
+    },
+    "1.0": {
+      "C": 1.0,
+      "l1_ratio": 0.0,
+      "solver": "lbfgs",
+      "max_iter": 2000,
+      "tol": 0.0001,
+      "fit_intercept": true,
+      "random_state": 42
+    },
+    "10.0": {
+      "C": 10.0,
+      "l1_ratio": 0.0,
+      "solver": "lbfgs",
+      "max_iter": 2000,
+      "tol": 0.0001,
+      "fit_intercept": true,
+      "random_state": 42
+    }
+  },
+  "baseline_absolute_tolerance": 1e-10,
+  "baseline_relative_tolerance": 0,
+  "packages": {
+    "numpy": "2.4.6",
+    "torch": "2.11.0+cu128",
+    "datasets": "5.1.0",
+    "sentence-transformers": "6.1.0",
+    "transformers": "5.20.2",
+    "scikit-learn": "1.9.1",
+    "matplotlib": "3.11.2"
+  },
+  "python": "3.11.17 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:16:54) [MSC v.1942 64 bit (AMD64)]",
+  "executable": "D:\\Anaconda\\envs\\icsi436-p\\python.exe",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "dataset": "fancyzhx/ag_news",
+  "dataset_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+  "source_split": "train",
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "model_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "embedding_mode": "existing cache only; no model loading or inference",
+  "feature_preparation": [
+    {
+      "role": "shared_validation_embeddings",
+      "key": "36e728e4c61c335f13d758fbaad61aee2bd3535a25de7b25eaca3e680d910e9f",
+      "cache_hit": true,
+      "measured_extraction_seconds": 0.5498225000001185,
+      "compute_this_call_seconds": 0.0,
+      "cache_read_seconds": 0.0019370000009075738,
+      "cache_write_seconds": 0.0,
+      "measured_at": "2026-10-19T22:37:10.525497+00:00"
+    },
+    {
+      "seed": 42,
+      "role": "tfidf",
+      "train_seconds": 0.02978600000096776,
+      "validation_seconds": 0.024897099998270278
+    },
+    {
+      "seed": 42,
+      "role": "training_embeddings",
+      "key": "6c8a7b0b35c84da3cdf9a951828c97d9663f8abd0f7814c738f095d179f87d1a",
+      "cache_hit": true,
+      "measured_extraction_seconds": 0.17318989999967016,
+      "compute_this_call_seconds": 0.0,
+      "cache_read_seconds": 0.0012456999993446516,
+      "cache_write_seconds": 0.0,
+      "measured_at": "2026-10-19T22:37:10.782795+00:00"
+    },
+    {
+      "seed": 123,
+      "role": "tfidf",
+      "train_seconds": 0.02544330000091577,
+      "validation_seconds": 0.02270969999881345
+    },
+    {
+      "seed": 123,
+      "role": "training_embeddings",
+      "key": "0732118a4e37e5705beb4de09ef05ed1d0d18d003b2a0660bb4b608455ac4d23",
+      "cache_hit": true,
+      "measured_extraction_seconds": 0.22785669999939273,
+      "compute_this_call_seconds": 0.0,
+      "cache_read_seconds": 0.001390599998558173,
+      "cache_write_seconds": 0.0,
+      "measured_at": "2026-10-19T22:58:49.505666+00:00"
+    },
+    {
+      "seed": 2026,
+      "role": "tfidf",
+      "train_seconds": 0.024696400001630536,
+      "validation_seconds": 0.023866899999120506
+    },
+    {
+      "seed": 2026,
+      "role": "training_embeddings",
+      "key": "99e8576ed4d666c84c7eda4c5ffa1b631553365e964f828aabd60a7f357a67b2",
+      "cache_hit": true,
+      "measured_extraction_seconds": 0.21106890000010026,
+      "compute_this_call_seconds": 0.0,
+      "cache_read_seconds": 0.0011761000005208189,
+      "cache_write_seconds": 0.0,
+      "measured_at": "2026-10-19T22:58:50.046007+00:00"
+    }
+  ],
+  "setup_timings": {
+    "dataset_load_seconds": 0.34651669999948354
+  },
+  "std_ddof": 1,
+  "script_sha256": "9b60601986f7898f01a4ad03b8648fb44d3eb11ed399d4ecd7314c51aa10211f",
+  "repeated_helpers_sha256": "f9a3f624eafbb82f92791f74eac985b564964cc2cb5a0e1176c96535a3381bde",
+  "pilot_helpers_sha256": "8b418f2029a90b7d6fc7475d2bb760a719604239c68fe5425c7639f5d74fe94f",
+  "reference_file_hashes": {
+    "run_metadata.json": "37856841375b6256b0bb1e26f94f81a75990ae45ee0eb48f575b1c7ae7b74047",
+    "sample_manifest.json": "3b0c2a96ae50e5c718fe3770fc97ead0235fe16baa563867f61bb308f129cbee",
+    "individual_results.json": "a11e3b951d647d9d45a4efb830dd48bd503f3f71f3b741a9fbc03ba6f185cac0"
+  },
+  "dataset_fingerprint": "2bc1e2be15d7f2ee",
+  "tfidf_settings": {
+    "lowercase": true,
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "max_features": 20000,
+    "sublinear_tf": true,
+    "norm": "l2"
+  },
+  "encoding_context": {
+    "cache_schema": 1,
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "dataset_fingerprint": "2bc1e2be15d7f2ee",
+    "source_split": "train",
+    "normalize_embeddings": true,
+    "precision": "float32",
+    "batch_size": 32,
+    "max_sequence_length": 256,
+    "device": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "cuda_build": "12.8",
+    "packages": {
+      "numpy": "2.4.6",
+      "torch": "2.11.0+cu128",
+      "datasets": "5.1.0",
+      "sentence-transformers": "6.1.0",
+      "transformers": "5.20.2",
+      "scikit-learn": "1.9.1",
+      "matplotlib": "3.11.2"
+    }
+  },
+  "baseline_reproduction_passed": true,
+  "finished_at": "2026-10-19T23:20:55.360372+00:00",
+  "experiment_count": 18
+}
