@@ -2,243 +2,201 @@
 
 **Evaluating Pretrained Text Representations for News Classification under Limited Training Data**
 
-UAlbany ICSI436/536, Fall 2026. Course topic: **Project P - Learning with
-Pretrained Representations**.
+UAlbany ICSI436/536, Project P — **Group 8: Zeyu Pan, Jiayu Liao, Yuhan Sun**.
 
-Research question: **Do pretrained text representations improve news
-classification performance compared with traditional TF-IDF features when
-labeled training data is limited?**
+**Research question:** With the same limited task labels, do frozen pretrained
+MiniLM representations improve AG News classification and sample efficiency
+compared with traditional TF-IDF features?
 
-## Current status
+## Current progress
 
-The feasibility test has passed in the student's Spyder environment: AG News
-loaded, RTX 4060 CUDA computation worked, and five articles produced valid
-384-dimensional MiniLM embeddings. `src/feasibility_test.py` is preserved.
+Feasibility checks, the pilot, three-seed baselines, and an exploratory
+regularization sweep are complete. The reviewed five-slide presentation and
+one-page report are in [reports/midterm](reports/midterm/README.md). All reported
+scores are **validation results**. Official test data have not been used for
+training, tuning, or evaluation. The feasibility check loaded split metadata and
+counts, including the test split; supervised experiments request only `train`.
 
-Phase 2 adds `src/pilot_experiment.py`: TF-IDF versus frozen MiniLM, each followed
-by multinomial Logistic Regression, using nested balanced training sets of 100
-and 400 and a fixed disjoint validation set of 800 (seed 42). The official test
-split is not used. The seed-42 pilot has completed successfully, with saved results
-under `results/pilot/20261019T223707_829532Z`. Final test evaluation has not been performed.
-No PowerPoint or LaTeX report has been generated.
+| Completed round | Design | Configurations |
+| --- | --- | ---: |
+| 1 — Pilot | Seed 42; 100 and 400 labels; common C=1 | 4 |
+| 2 — Repeated baselines | Seeds 42, 123, 2026; both budgets; C=1 | 12 |
+| 3 — Exploratory regularization | Same three seeds; 400 labels; C=0.1, 1, 10 | 18 |
 
-## Run the repeated baselines
+Counts overlap intentionally: Round 2 includes the seed-42 pilot settings and
+Round 3 reproduces the C=1 baselines. They are not 34 independent experiments.
+See the [experiment log](docs/experiment_log.md) for exact saved runs.
 
-Open `src/repeated_experiment.py` in the same Spyder environment and press F5.
-It evaluates seeds **42, 123, and 2026** using the completed pilot's exact fixed
-800-example validation set. Each seed has balanced nested 100/400 training sets,
-identical for both representations. Model/preprocessing settings and C=1.0 stay
-unchanged; no hyperparameter tuning or official test evaluation is performed.
+## Pipelines and fair comparison
 
-The original scripts/results are preserved. Matching embeddings are reused.
-Each new run saves 12 individual scores, mean/sample SD summaries, paired
-differences, two comparison figures, and a data-derived `analysis.md` under
-`results/repeated/<UTC timestamp>/`. The repeated real experiments have not yet
-been run during implementation. See [the repeated-experiment guide](docs/repeated_experiments.md)
-for the fixed reference, seed interpretation, cache behavior, and limitations.
+1. **TF-IDF → multinomial Logistic Regression:** fit vocabulary and inverse
+   document frequencies on training text only; transform validation with those
+   fixed statistics. Features are sparse word unigram/bigram vectors.
+2. **Frozen MiniLM → multinomial Logistic Regression:** extract normalized
+   384-dimensional vectors with `all-MiniLM-L6-v2`; do not update its parameters.
+   Feature extraction uses CUDA; classifier fitting uses the CPU.
 
-## Run the Phase 2 pilot
+Both classifiers learn class weights and intercepts using standard softmax
+probabilities, cross-entropy, and L2 regularization. There is no custom loss or
+Transformer fine-tuning. The study compares representations, not new algorithms.
 
-Open `src/pilot_experiment.py` in Spyder with the existing `icsi436-p` interpreter,
-inspect the code, and press F5. CUDA is required. Successful runs print
-`PILOT COMPLETE` and save CSV/JSON metrics, predictions, errors, configuration,
-sample IDs, and a performance figure under `results/pilot/<UTC timestamp>/`.
+The 100/400 training sets are class-balanced and nested within each seed.
+Both pipelines use identical ordered examples. One fixed disjoint validation set
+contains 800 articles (200 per class). Sampling seeds change training rows only.
+The common classifier uses L-BFGS, C=1, `max_iter=2000`, `tol=1e-4`, an intercept,
+and `random_state=42`. Round 3 changes only C. The architecture guide explains
+[data shapes, cache validation, and module relationships](docs/architecture.md).
 
-Read [the pilot protocol and timing guide](docs/pilot_experiment.md) before
-interpreting results. Both classifiers use L2 regularization with C=1.0, which is
-an untuned common starting point. Embeddings are cached; cache reads and reused
-encoding measurements are explicitly distinguished from new computation.
-All findings must be labeled **preliminary single-seed validation results**.
+## Verified preliminary findings
 
-## Research design and later study
+Round 2 percentages are mean ± sample standard deviation across three training
+seeds (`ddof=1`). SD describes training-sample variability, not a confidence interval.
 
-| Component | Planned approach |
-| --- | --- |
-| Dataset | AG News, four news categories |
-| Baseline | TF-IDF features + Logistic Regression |
-| Pretrained approach | Frozen all-MiniLM-L6-v2 embeddings + Logistic Regression |
-| Main variable | Number of labeled training examples |
-| Evaluation | Accuracy, Macro-F1, computational cost |
-| Main analysis | Learning curves and when pretrained features improve sample efficiency |
+| Representation | Labels | Validation accuracy (%) | Validation macro-F1 (%) |
+| --- | ---: | ---: | ---: |
+| TF-IDF | 100 | 66.21 ± 2.50 | 65.72 ± 2.64 |
+| Frozen MiniLM | 100 | 82.38 ± 2.18 | 82.28 ± 2.24 |
+| TF-IDF | 400 | 76.71 ± 0.51 | 76.63 ± 0.55 |
+| Frozen MiniLM | 400 | 84.54 ± 0.47 | 84.53 ± 0.46 |
 
-Use matching stratified subsets/seeds for both approaches, and reserve a
-validation set from training data for decisions. Fit TF-IDF on training data
-only. Keep the official test split out of tuning. Record seeds, sample sizes,
-model/dataset revisions, hyperparameters, dependency versions, and device details
-to reproduce results. Separate downloads/model startup, feature extraction,
-classifier fitting, and prediction costs; five-article startup timings are not
-experimental benchmarks. The first pilot implements 100/400 training examples
-and an 800-example validation set with seed 42. The repeated-baseline script adds
-three training-subset seeds; broader sample sizes, separate hyperparameter tuning,
-and final test evaluation remain future work.
+MiniLM exceeds TF-IDF for every matched seed/budget pair on both metrics. Its
+100-label mean accuracy also exceeds TF-IDF's 400-label mean. Increasing labels
+from 100 to 400 improves mean accuracy by 10.50 percentage points for TF-IDF and
+2.17 for MiniLM. This supports promising label efficiency in these settings;
+two budgets do not establish a plateau.
 
-## Environment
+Round 3 is a separate **exploratory** sensitivity analysis at 400 labels:
 
-Use the existing Conda environment; no environment recreation is necessary.
+| Representation | C=0.1 | C=1 | C=10 |
+| --- | ---: | ---: | ---: |
+| TF-IDF mean validation accuracy (%) | 76.00 | 76.71 | 77.46 |
+| MiniLM mean validation accuracy (%) | 84.38 | 84.54 | 83.75 |
 
-- OS: Windows; IDE: Spyder; environment: `icsi436-p`.
-- Interpreter: `D:\Anaconda\envs\icsi436-p\python.exe`.
-- Python: 3.11.17; PyTorch: 2.11.0+cu128.
-- NumPy: 2.4.6; Datasets: 5.1.0; Sentence Transformers: 6.1.0.
-- scikit-learn: 1.9.1; Matplotlib: 3.11.2 (existing installations).
-- User-provided hardware: NVIDIA GeForce RTX 4060 Laptop GPU, 8 GB, CUDA 12.8.
-- Initialization checks confirmed imports of all four direct dependencies and
-  `torch.cuda.is_available() == True`. The full feasibility script has not been
-  executed during initialization; no dataset/model downloads were initiated.
+C=1 exactly reproduces Round 2. Moving to C=10 changes accuracy by +0.75 and
+−0.79 points, respectively. Representation-specific hyperparameter selection
+may be useful; neither pipeline is fully optimized.
 
-`requirements.txt` records only the direct dependencies used now, with observed
-versions. It is not a full Conda export or a command to reinstall packages.
-Preserve the working CUDA-enabled PyTorch installation. scikit-learn and
-Matplotlib are now included in the inventory for the pilot; no packages were installed.
+Sources: [Round 2 summary](results/repeated/20261019T225846_619676Z/summary.csv),
+[Round 3 summary](results/regularization/20261019T232052_926893Z/summary.csv), and
+[verified midterm data](reports/midterm/verified_results.json).
 
-## Directory structure
+## Environment and setup
 
-```text
-ICSI436_ProjectP_NewsRepLab/
-|-- src/
-|   |-- feasibility_test.py
-|   |-- pilot_experiment.py
-|   `-- repeated_experiment.py
-|-- data/
-|   `-- README.md
-|-- results/
-|   |-- pilot/
-|   `-- repeated/                 (created when repeated baselines run)
-|-- reports/
-|   |-- midterm/
-|   `-- final/
-|-- docs/
-|   |-- course_requirements.md
-|   |-- pilot_experiment.md
-|   `-- repeated_experiments.md
-|-- tests/
-|   |-- test_pilot_experiment.py
-|   `-- test_repeated_experiment.py
-|-- README.md
-|-- requirements.txt
-`-- .gitignore
-```
+The verified workstation uses Windows, Spyder, Conda environment `icsi436-p`,
+Python 3.11.17, PyTorch 2.11.0+cu128, and an NVIDIA GeForce RTX 4060 Laptop GPU.
+[requirements.txt](requirements.txt) records the seven runtime packages used or
+checked by the experiments. It is an inventory, not a complete environment lock.
+**Keep the existing working environment; no reinstall is needed.**
 
-Small `.gitkeep` files preserve empty output folders if Git is initialized later.
-The Datasets cache defaults to `D:\hf_cache\datasets`, outside the project;
-the script creates it automatically when Part B runs. Model files still go under
-the Git-ignored `.cache/sentence_transformers/` directory. Hugging Face Hub may
-also use its separate shared download cache. No cache, environment, weight file,
-or large generated artifact should be committed. The dataset cache is absolute;
-project paths use the script's location, so Spyder's working directory does not
-matter. The existing project directory structure is unchanged.
+On a separate machine, prepare an isolated Python 3.11 environment and a working
+CUDA-enabled PyTorch installation compatible with that machine. Install the
+recorded requirements there, then verify imports and CUDA before attempting
+reproduction. Do not install this inventory over the established environment.
+Exact cross-platform scores, cache identity, and timings are not guaranteed.
+See [reproducibility and setup](docs/reproducibility.md) for prerequisites and
+the important Round 3 cache restriction.
 
-### Configurable dataset cache
-
-No configuration is needed for the default `D:\hf_cache\datasets`. To choose a
-different location, set `HF_DATASETS_CACHE` to a short absolute path before
-running the file. For example, in the Spyder IPython console:
+Paths are derived from each script's location, not the working directory.
+The Windows dataset cache defaults to the short external path
+`D:\hf_cache\datasets` to avoid WinError 206. To use another location, set
+`HF_DATASETS_CACHE` to a short absolute path before running a script, for example
+in Spyder's console:
 
 ```python
 import os
-os.environ["HF_DATASETS_CACHE"] = r"D:\hf_cache\datasets"
+os.environ["HF_DATASETS_CACHE"] = r"C:\hf_cache\datasets"
 ```
 
-Then run the file with F5. The script reads this variable on each execution and
-passes the selected directory explicitly to `load_dataset(..., cache_dir=...)`,
-even if Datasets was already imported in that kernel. This console setting lasts
-for the current kernel session. An unset or empty variable uses the default;
-relative paths are rejected. Part B prints the actual directory in use.
+This override is also required on machines without the default D: drive; on
+non-Windows systems use an absolute path appropriate to that system. Model files
+and embeddings live in ignored project `.cache/` directories. The feasibility,
+pilot, and repeated scripts create their cache directories when run. Round 3
+requires existing validated embedding blocks. No package is installed by any script.
 
-This short path addresses **WinError 206**: Datasets generates long filenames
-for cache locks, including a flattened copy of the cache path. Under a deeply
-nested directory, the resulting filename or full path can exceed Windows limits.
-Shortening the cache root reduces both lengths without moving the project.
-Existing files in `data/hf_datasets/` are left untouched and are no longer used
-by this loader. The prepared dataset may need to be rebuilt in the new location.
-This setting relocates the Datasets cache, not the separate Hugging Face Hub or
-MiniLM model cache. See [Hugging Face cache management](https://huggingface.co/docs/datasets/en/cache)
-and [Windows path limits](https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation).
+## Execution
 
-## Run manually in Spyder
+In Spyder, select the existing `icsi436-p` interpreter, verify
+`import sys; print(sys.executable)`, open a script, and press **F5**. All four
+scripts retain their standalone entry points and `if __name__ == "__main__"` guards.
 
-1. Use your existing Spyder configuration for `icsi436-p`. In the IPython console,
-   run `import sys; print(sys.executable)` and verify the interpreter path above.
-2. If it is different, select that existing interpreter in Spyder's Python
-   interpreter preferences and restart the IPython kernel. Do not recreate the
-   environment or reinstall PyTorch.
-3. Open `src/feasibility_test.py` from this project and use **Run File / F5**.
-4. Allow time for the first dataset/model downloads. Keep the complete output,
-   including any traceback, for review before moving to classification.
-
-Optional PowerShell command (an alternative to Spyder):
+From an activated environment and the project root, the equivalent commands are:
 
 ```powershell
-& 'D:\Anaconda\envs\icsi436-p\python.exe' 'D:\大学\UAlbany\Courses\ICSI436 Machine Learning\Project\ICSI436_ProjectP_NewsRepLab\src\feasibility_test.py'
+conda activate icsi436-p
+python src/feasibility_test.py
+python src/pilot_experiment.py
+python src/repeated_experiment.py
+python src/regularization_experiment.py
 ```
 
-## What the script teaches and expected output
+These commands execute real work; run only the stage you intend to repeat.
+No new ML experiment was run during consolidation. Each experiment writes a
+new timestamped directory, preserving the original results. Do not run scripts
+concurrently against the shared embedding cache.
 
-- **Part A:** interpreter/version, PyTorch/CUDA availability, GPU name and memory,
-  and a tiny GPU matrix multiplication. If CUDA is unavailable or its probe fails,
-  an explicit warning selects CPU. A CPU pass does not validate GPU execution.
-- **Part B:** split names, expected 120,000 training and 7,600 test rows, label
-  mapping, and five short article previews with their known labels. Raw text is
-  input X; the category is target y. Preview shortening does not alter model input.
-- **Part C:** MiniLM load time and five-article encoding time measured separately.
-  Each original text is encoded without its label. The tokenizer can truncate
-  long inputs; the model's maximum token length is printed. Output is a CPU NumPy
-  array even when neural inference uses CUDA.
-- **Part D:** floating-point values must all be finite, row counts must agree,
-  and the embedding matrix must have shape **(5, 384)**. The first eight values
-  of the first row are printed. These values are features, not class probabilities.
-
-Successful CUDA output ends with:
-
-```text
-FEASIBILITY TEST PASSED on cuda:0: five articles produced valid 384-D embeddings.
-No classifier training, fine-tuning, accuracy, or Macro-F1 evaluation was performed.
-```
-
-CPU mode prints `cpu` instead and clarifies that GPU feasibility is unverified.
-Exact vector values and timings can vary. Loading includes download time on a
-cold cache; extraction includes CPU tokenization, inference, and CPU array
-conversion. GPU synchronization makes timings include completed GPU work.
-
-## Troubleshooting
-
-| Symptom | What to check |
+| Script guide | Prerequisites and scope |
 | --- | --- |
-| Import fails | Confirm `sys.executable`, the named dependency, and the original traceback; restart the Spyder kernel after selecting the existing interpreter. |
-| Download/network/model loading fails | Check access to Hugging Face, internet/proxy settings, and the original exception. Rerun after connectivity recovers; cached downloads are reused. |
-| WinError 206: filename or extension too long | Use the default `D:\hf_cache\datasets` or set `HF_DATASETS_CACHE` to another short absolute path; verify the path printed in Part B. |
-| Cache permission error or full disk | Check available space and write access to the printed cache directories, including the external dataset cache. |
-| CUDA unavailable | The script continues on CPU. Check the interpreter and NVIDIA driver before changing installed packages. |
-| CUDA probe fails | The exact error is printed and CPU is selected. This is not a GPU pass. |
-| CUDA error during MiniLM loading/encoding | The run fails with a traceback; close GPU-heavy applications and restart the kernel before rerunning. It does not silently retry a failed model operation on CPU. |
-| Wrong shape or NaN/infinity | Validation fails; retain the traceback and verify the requested model identifier and library versions. |
-| First run is slow | Downloads/model startup and initial inference add overhead; do not interpret this as a controlled benchmark. |
-| Windows distributed redirect notice | Dependency imports may print a notice that distributed process redirects are unsupported on Windows. This script does not use distributed training; inspect any actual subsequent exception separately. |
+| [Feasibility/data notes](data/README.md) | Downloads if needed; CUDA probe with explicit CPU fallback; five embeddings only |
+| [Pilot](docs/pilot_experiment.md) | CUDA required; four validation configurations |
+| [Repeated baselines](docs/repeated_experiments.md) | Saved pilot metadata/manifest; CUDA required; twelve fits |
+| [Regularization](docs/regularization_experiment.md) | Saved repeated reference plus its four matching embedding blocks; cache-only MiniLM; eighteen CPU fits |
 
-## Future development
+The repeated and regularization scripts pin named historical run directories.
+They reject incompatible references instead of silently choosing the newest run.
+Restoring these small reference artifacts is necessary on a fresh checkout.
 
-1. Run the three-seed baselines in Spyder and inspect stability, metrics, and errors.
-2. Use only verified, qualified findings in the midterm presentation.
-3. Later extend training sizes/seeds and tune each representation on validation.
-4. Evaluate final selected methods on the untouched official test split.
-5. Analyze limitations and reproducibility, then prepare the course presentations
-   and LaTeX reports after reviewing the real results.
+## Offline verification
 
-See [course requirement notes](docs/course_requirements.md) for the provided
-instruction PDF's deliverables and Project P alignment. No slides or reports have
-been generated at this stage.
+```powershell
+python -B -m unittest discover -s tests -v
+```
 
-## Sources and attribution
+Tests use synthetic text, a fake encoder, temporary outputs, and real CPU
+Logistic Regression. They do not download AG News or run CUDA inference.
+Formatting tools are optional development tools, not required to run experiments.
+See [maintenance verification](docs/maintenance_review.md) for the executed checks
+and limits of the behavioral-equivalence claim.
 
-- [AG News dataset card and hosted dataset](https://huggingface.co/datasets/fancyzhx/ag_news).
-  Original corpus collected by Antonio Gulli; classification benchmark associated
-  with Zhang, Zhao, and LeCun (2015), *Character-level Convolutional Networks for
-  Text Classification*.
-- [all-MiniLM-L6-v2 model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
-  Public pretrained encoder used for 384-dimensional sentence/paragraph features;
-  model-card default truncation length is 256 word pieces.
-- [SentenceTransformer API](https://sbert.net/docs/package_reference/sentence_transformer/model.html).
-- Course instructions: `../project.pdf`, supplied by the user and left unchanged.
-- Initial scaffold and educational code were prepared with Codex assistance.
-  The group should understand, review, and document its own final implementation
-  and follow course attribution requirements.
+## Project map
+
+- `src/`: four readable experimental entry points with existing shared helpers.
+- `tests/`: offline sampling, leakage, cache, aggregation, and workflow checks.
+- `docs/`: architecture, experiment log, protocols, reproducibility, course notes,
+  maintenance review, and publication preparation.
+- `results/`: selected small historical summaries, manifests, metadata, diagnostics,
+  and figures; raw prediction/error CSVs remain local and ignored.
+- `reports/midterm/`: [editable slides](reports/midterm/NewsRepLab_Midterm.pptx),
+  [one-page PDF](reports/midterm/midterm_report.pdf),
+  [LaTeX source](reports/midterm/midterm_report.tex), and
+  [510-word speaking script](reports/midterm/presentation_script.md).
+- `data/README.md`: data attribution and cache policy; downloaded data are ignored.
+
+## Limits and future work
+
+Three training seeds share one repeatedly inspected validation set. Results are
+paired/correlated, not independent validation replications. Pretraining supplies
+external information; this is task-label efficiency, not equal total training
+effort. Timing mixes CPU/GPU work and reused caches, so it is not a controlled
+speed benchmark. There is no significance claim, final test result, universal
+superiority claim, or completed hyperparameter optimization.
+
+Planned work: expand labeled budgets; select hyperparameters separately using
+stratified K-fold CV **within each labeled budget**, fitting TF-IDF inside each
+fold; evaluate representations more systematically; analyze Business versus
+Sci/Tech errors; measure costs under controlled conditions; then fix the protocol
+and evaluate on the untouched official test set. K-fold selection is not yet implemented.
+
+## Attribution and publication
+
+- [AG News dataset card](https://huggingface.co/datasets/fancyzhx/ag_news): corpus
+  collected by Antonio Gulli; classification benchmark from Zhang, Zhao, and
+  LeCun (2015), [Character-level Convolutional Networks for Text Classification](https://arxiv.org/abs/1509.01626).
+- [Sentence Transformers all-MiniLM-L6-v2 model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2).
+- [Course requirement notes](docs/course_requirements.md); the instructor's
+  original PDF is provided separately, not bundled in this repository.
+- Code and documentation were developed with Codex assistance. Group 8 is
+  responsible for final review and the course's authorship/attribution requirements.
+
+GitHub publication is pending confirmation of account/organization, visibility,
+and the exact tracked file list. See [Git preparation](docs/git_preparation.md).
+No remote repository has been created and nothing has been pushed.

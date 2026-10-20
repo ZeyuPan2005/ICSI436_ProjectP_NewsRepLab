@@ -13,12 +13,13 @@ particularly with limited training data. Analyze when the pretrained features
 help and their effect on sample efficiency, generalization, or robustness.
 Other representations or downstream algorithms are optional novelty directions.
 
-Our planned comparison is TF-IDF + Logistic Regression versus frozen MiniLM +
+Our implemented comparison is TF-IDF + Logistic Regression versus frozen MiniLM +
 Logistic Regression on AG News. Varying labeled training size addresses sample
-efficiency. This feasibility script establishes prerequisites only; it does not
-yet satisfy the complete experimental requirement.
+efficiency. The feasibility script establishes prerequisites only. Three supervised
+rounds and reviewed midterm deliverables are now complete; the final study remains
+planned. See [experiment log](experiment_log.md) for current evidence.
 
-## Deliverables to prepare later
+## Course deliverables
 
 - Midterm presentation: 5 points; soundness, organization, clarity, progress,
   and challenges.
@@ -36,6 +37,7 @@ yet satisfy the complete experimental requirement.
 - No late submissions for the one-pager, final report, or code. This PDF does not
   list concrete deadlines; check course announcements/syllabus for dates/updates.
 
-No presentation, report, submission, or email is produced in this initialization.
-Keep source attribution and record actual configurations/results when experiments
-begin. Do not present a feasibility check as evidence of classification quality.
+The reviewed midterm presentation/report are in `reports/midterm/`. Their
+preparation does not mean they were submitted. Final materials, submission, and
+any email remain separate user actions. Preserve source attribution and report
+only actual measurements; feasibility alone is not classification evidence.

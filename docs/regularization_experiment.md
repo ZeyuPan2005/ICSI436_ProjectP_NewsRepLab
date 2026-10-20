@@ -1,7 +1,14 @@
 # Round 3: EXPLORATORY regularization sensitivity
 
+## Completed status
+
+This round is complete. See the [experiment log](experiment_log.md) for verified
+observations and artifact locations, and [reproducibility](reproducibility.md)
+for setup/reference/cache requirements. The sections below document how to rerun
+this protocol; they do not imply that new runs are needed for the midterm.
+
 Run `src/regularization_experiment.py` with F5 in Spyder using the existing
-`D:\Anaconda\envs\icsi436-p\python.exe` interpreter. No package installation,
+`icsi436-p` interpreter. No package installation,
 environment update, model change, or CUDA configuration change is needed.
 The real sweep is intended for manual execution; this document supplies no
 invented sweep results.
@@ -147,8 +154,8 @@ software verification, not new AG News results.
 From the project directory:
 
 ```powershell
-& 'D:\Anaconda\envs\icsi436-p\python.exe' -B -m unittest discover -s tests -v
+python -B -m unittest discover -s tests -v
 ```
 
-No presentation or one-page report is generated. Review the actual sweep outputs
-before deciding what belongs in the midterm materials.
+This script generates experiment outputs, not slides or reports. Reviewed
+midterm deliverables are available in [reports/midterm](../reports/midterm/README.md).

@@ -1,11 +1,14 @@
-# Direct dependencies for the feasibility test and Phase 2 pilot.
+# Runtime dependency inventory for all four experiment scripts.
 # Versions observed in the existing icsi436-p environment on 2026-10-19.
 # This is an inventory, not an instruction to reinstall the working environment.
 # Keep the installed PyTorch 2.11.0+cu128 build; ==2.11.0 accepts that local build.
 # A fresh environment would need a separately chosen platform/CUDA installation.
+# Transformers is imported through Sentence Transformers and version-checked in
+# the experiment cache context. Transitive dependencies are not fully locked.
 torch==2.11.0
 numpy==2.4.6
 datasets==5.1.0
 sentence-transformers==6.1.0
 scikit-learn==1.9.1
 matplotlib==3.11.2
+transformers==5.20.2

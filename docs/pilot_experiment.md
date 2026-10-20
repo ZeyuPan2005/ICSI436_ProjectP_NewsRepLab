@@ -1,5 +1,12 @@
 # Phase 2 pilot: protocol and interpretation
 
+## Completed status
+
+This round is complete. See the [experiment log](experiment_log.md) for verified
+observations and artifact locations, and [reproducibility](reproducibility.md)
+for setup/reference/cache requirements. The sections below document how to rerun
+this protocol; they do not imply that new runs are needed for the midterm.
+
 This is a preliminary, single-seed comparison of representations. Actual pilot
 scores are generated only when `src/pilot_experiment.py` is run successfully.
 No accuracy or Macro-F1 values are assumed in this document.
@@ -60,7 +67,7 @@ quality independent of normalization, vocabulary, truncation, and regularization
 
 ## Run in Spyder
 
-1. Confirm `sys.executable` is `D:\Anaconda\envs\icsi436-p\python.exe`.
+1. Confirm `sys.executable` points to the existing `icsi436-p` environment.
 2. Inspect and open `src/pilot_experiment.py`, then press F5.
 3. CUDA is required for this pilot. If unavailable, it fails with a diagnostic
    rather than silently changing the intended feature-extraction device.
@@ -135,7 +142,7 @@ finite values, and checksums are checked before reuse. Corruption is reported;
 set FORCE_RECOMPUTE_EMBEDDINGS=True to regenerate selected feature blocks.
 Do not run concurrent pilot scripts writing to the same embedding cache.
 
-## Verification and limitations
+## Offline verification and limitations
 
 The offline unittest suite checks balanced/disjoint/nested sampling, repeatability,
 training-only vocabulary fitting, cache reuse/invalidation, corrupt array rejection,
@@ -146,7 +153,7 @@ verification, not evidence about MiniLM or AG News performance.
 Run it, if desired, from the project directory with the existing interpreter:
 
 ```powershell
-& 'D:\Anaconda\envs\icsi436-p\python.exe' -B -m unittest discover -s tests -v
+python -B -m unittest discover -s tests -v
 ```
 
 The intended real experiment is run manually by the student. One seed and one
@@ -157,19 +164,14 @@ even with a fixed seed. Row sets are disjoint; near-duplicate news stories are n
 audited in this first pilot. Pretraining can supply external knowledge; possible
 pretraining overlap with news content is not established here.
 
-## What can go into the midterm presentation
+## Interpretation after completion
 
-Already supported by the student's successful feasibility run: AG News access,
-working RTX 4060 inference, and valid 384-dimensional MiniLM features. The pilot
-code additionally documents a reproducible comparison protocol, not yet scores.
-
-After a completed real run, include its actual four validation scores, the saved
-comparison figure, explicitly qualified timings, and a few real error examples.
-Describe any observed advantage as "in this preliminary seed-42 pilot," not proof
-of universal superiority or statistical significance. A CPU/GPU speed comparison
-must name the devices and exclude startup/cache-read confusion. Report failures
-or unexpected results honestly. Future work includes repeated seeds, more sample
-sizes, separate validation-based tuning, and eventual untouched-test evaluation.
+The completed seed-42 pilot supports a preliminary comparison, and Round 2
+extends it to three training-subset seeds. Round 3 probes C sensitivity. Read
+the experiment log for current findings rather than treating this single-seed
+protocol as the whole study. Additional budgets, stratified K-fold selection
+within each labeled budget, error/cost analysis, and official-test evaluation
+remain future work. Reviewed materials are in [reports/midterm](../reports/midterm/README.md).
 
 ## API references
 

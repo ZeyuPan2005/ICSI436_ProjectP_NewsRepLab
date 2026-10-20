@@ -1,5 +1,12 @@
 # Repeated baselines: three training-subset seeds
 
+## Completed status
+
+This round is complete. See the [experiment log](experiment_log.md) for verified
+observations and artifact locations, and [reproducibility](reproducibility.md)
+for setup/reference/cache requirements. The sections below document how to rerun
+this protocol; they do not imply that new runs are needed for the midterm.
+
 Run `src/repeated_experiment.py` with F5 in Spyder using the existing `icsi436-p`
 interpreter. The real three-seed experiments are intended for manual execution;
 their analysis and figures are generated from measured results, not predictions
@@ -39,8 +46,8 @@ guaranteed. Row IDs, labels, package versions, settings, and code hashes are sav
 
 ## Preservation and caching
 
-The original pilot/feasibility scripts and previous results are unchanged. The
-new script imports the existing pilot's helpers without executing its main().
+Each repeated run preserves earlier result folders. The script imports the
+pilot's shared helpers without executing its main().
 It writes each run to a fresh `results/repeated/<UTC timestamp>/` folder.
 
 The cache identity matches the pilot, so compatible validation and seed-42
@@ -51,7 +58,7 @@ classifiers are fitted/evaluated in the new run, avoiding double-counting seed 4
 
 The same short `HF_DATASETS_CACHE` default (`D:\hf_cache\datasets`) and existing
 model/embedding cache directories are used. No packages or CUDA settings change.
-To refresh selected embedding blocks deliberately, change the new script's
+To refresh selected embedding blocks deliberately, change this script's
 `FORCE_RECOMPUTE_EMBEDDINGS` constant to True; normally leave it False. Do not run
 concurrent scripts against the same embedding cache.
 
@@ -105,7 +112,7 @@ included in each standalone cost but its current compute is counted only once.
 Downloads, dataset/model loading, and warmup are recorded separately. Do not turn
 cache-hit times or a three-seed score SD into computational-performance claims.
 
-## Verification
+## Offline verification
 
 Offline tests use synthetic text and a fake encoder, exercising the real sklearn
 classifiers. They check fixed validation, nested/balanced samples, reproducibility,
@@ -116,7 +123,7 @@ of earlier files. Their temporary outputs are not research results.
 From the project directory, use the existing interpreter:
 
 ```powershell
-& 'D:\Anaconda\envs\icsi436-p\python.exe' -B -m unittest discover -s tests -v
+python -B -m unittest discover -s tests -v
 ```
 
 After running the real experiments, review `analysis.md` together with individual

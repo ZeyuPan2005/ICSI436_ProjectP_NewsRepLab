@@ -49,10 +49,15 @@ try:
     from sklearn.exceptions import ConvergenceWarning
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.linear_model import LogisticRegression
-    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
+    from sklearn.metrics import (
+        accuracy_score,
+        classification_report,
+        confusion_matrix,
+        f1_score,
+    )
 except Exception:
     print("Pilot dependency import failed. Active Python:", sys.executable)
-    print(r"Use the existing D:\Anaconda\envs\icsi436-p\python.exe interpreter.")
+    print("Use the existing icsi436-p Conda interpreter selected in Spyder.")
     print("Keep the original traceback; do not reinstall PyTorch or change CUDA.")
     raise
 IMPORT_SECONDS = time.perf_counter() - IMPORT_START
@@ -61,7 +66,9 @@ IMPORT_SECONDS = time.perf_counter() - IMPORT_START
 # Paths never depend on Spyder's current working directory. Keep the short
 # external Datasets cache that fixed WinError 206 in the feasibility stage.
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATASET_CACHE = Path(os.environ.get("HF_DATASETS_CACHE") or r"D:\hf_cache\datasets").expanduser()
+DATASET_CACHE = Path(
+    os.environ.get("HF_DATASETS_CACHE") or r"D:\hf_cache\datasets"
+).expanduser()
 MODEL_CACHE = PROJECT_ROOT / ".cache" / "sentence_transformers"
 EMBEDDING_CACHE = PROJECT_ROOT / ".cache" / "pilot_embeddings"
 RESULTS_ROOT = PROJECT_ROOT / "results" / "pilot"
@@ -90,24 +97,37 @@ FORCE_RECOMPUTE_EMBEDDINGS = False
 # In the installed sklearn 1.9, l1_ratio=0 specifies L2 without the deprecated
 # penalty argument. lbfgs optimizes the joint multinomial objective for 4 classes;
 # no removed multi_class argument or one-versus-rest wrapper is needed.
-LR_SETTINGS = dict(C=1.0, l1_ratio=0.0, solver="lbfgs", max_iter=2000,
-                   tol=1e-4, fit_intercept=True, random_state=SEED)
-TFIDF_SETTINGS = dict(lowercase=True, ngram_range=(1, 2), min_df=1,
-                      max_features=20000, sublinear_tf=True, norm="l2")
+LR_SETTINGS = dict(
+    C=1.0,
+    l1_ratio=0.0,
+    solver="lbfgs",
+    max_iter=2000,
+    tol=1e-4,
+    fit_intercept=True,
+    random_state=SEED,
+)
+TFIDF_SETTINGS = dict(
+    lowercase=True,
+    ngram_range=(1, 2),
+    min_df=1,
+    max_features=20000,
+    sublinear_tf=True,
+    norm="l2",
+)
 
 
-def utc_now():
+def utc_now() -> str:
     """Use an explicit UTC timestamp so saved runs can be identified unambiguously."""
     return datetime.now(timezone.utc).isoformat()
 
 
-def save_json(path, value):
+def save_json(path: Path | str, value: object) -> None:
     """Write readable machine-readable metadata; reject non-finite JSON numbers."""
     with Path(path).open("w", encoding="utf-8") as handle:
         json.dump(value, handle, indent=2, ensure_ascii=False, allow_nan=False)
 
 
-def save_csv(path, rows, columns):
+def save_csv(path: Path | str, rows: list[dict], columns: list[str]) -> None:
     """Always write a header, even when an experiment has zero prediction errors."""
     with Path(path).open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
@@ -115,8 +135,13 @@ def save_csv(path, rows, columns):
         writer.writerows(rows)
 
 
-def sample_indices(labels):
-    """Reserve balanced validation rows, then select nested training rows."""
+def sample_indices(labels: np.ndarray) -> tuple[dict[int, list[int]], list[int]]:
+    """Reserve validation before training selection to prevent row leakage.
+
+    ``labels`` has shape (n_original_train,). Return original dataset row IDs:
+    a training dictionary with lengths 100/400 and a validation list of 800.
+    The exact RNG calls and ordering are part of the recorded protocol.
+    """
     labels = np.asarray(labels)
     if set(np.unique(labels).tolist()) != set(CLASS_IDS):
         raise ValueError("Expected the four AG News class IDs 0, 1, 2, 3.")
@@ -133,7 +158,7 @@ def sample_indices(labels):
         for size in TRAIN_SIZES:
             # The first 25/class are contained in the first 100/class, so the
             # larger dataset adds examples rather than replacing the small set.
-            training[size].extend(remaining[:size // 4].tolist())
+            training[size].extend(remaining[: size // 4].tolist())
 
     validation = rng.permutation(validation).tolist()
     for size in TRAIN_SIZES:
@@ -143,15 +168,19 @@ def sample_indices(labels):
         raise ValueError("Validation must contain 800 distinct rows.")
     for size, indices in training.items():
         if len(set(indices)) != size or set(indices) & set(validation):
-            raise ValueError("Training rows must be unique and disjoint from validation.")
+            raise ValueError(
+                "Training rows must be unique and disjoint from validation."
+            )
         if not np.all(np.bincount(labels[indices], minlength=4) == size // 4):
             raise ValueError("Training class counts are not balanced.")
     if not set(training[100]).issubset(training[400]):
-        raise ValueError("The 100-example set must be contained in the 400-example set.")
+        raise ValueError(
+            "The 100-example set must be contained in the 400-example set."
+        )
     return training, validation
 
 
-def select_rows(dataset, indices):
+def select_rows(dataset, indices: list[int]) -> tuple[list[str], np.ndarray]:
     """Materialize text only for requested rows, preserving row/label alignment."""
     selected = dataset.select(indices)
     texts = list(selected["text"])
@@ -161,8 +190,14 @@ def select_rows(dataset, indices):
     return texts, labels
 
 
-def tfidf_features(train_texts, validation_texts):
-    """Learn a training-only vocabulary/IDF and transform held-out validation."""
+def tfidf_features(train_texts: list[str], validation_texts: list[str]):
+    """Fit training-only TF-IDF, then transform validation without refitting.
+
+    Return two sparse matrices with shapes (n_train, vocabulary_size) and
+    (n_validation, vocabulary_size), the fitted vectorizer, and two timings.
+    Vocabulary size can differ between training budgets; validation columns
+    must use the current training vocabulary in exactly the same order.
+    """
     vectorizer = TfidfVectorizer(**TFIDF_SETTINGS)
     # Sparse rows mostly contain zeros: each article uses only a small fraction
     # of the vocabulary. L2 normalization keeps article feature norms comparable.
@@ -175,25 +210,42 @@ def tfidf_features(train_texts, validation_texts):
     started = time.perf_counter()
     validation_features = vectorizer.transform(validation_texts)
     validation_seconds = time.perf_counter() - started
-    return train_features, validation_features, vectorizer, train_seconds, validation_seconds
+    return (
+        train_features,
+        validation_features,
+        vectorizer,
+        train_seconds,
+        validation_seconds,
+    )
 
 
-def validate_embeddings(array, count):
+def validate_embeddings(array: np.ndarray, count: int) -> None:
     """Reject stale, malformed, or non-finite feature arrays before fitting LR."""
     if array.shape != (count, EMBEDDING_DIMENSION):
-        raise ValueError(f"Expected embeddings of shape ({count}, 384), got {array.shape}.")
+        raise ValueError(
+            f"Expected embeddings of shape ({count}, 384), got {array.shape}."
+        )
     if not np.issubdtype(array.dtype, np.floating) or not np.isfinite(array).all():
         raise ValueError("Embedding values must be finite floating-point numbers.")
 
 
 def embedding_block(model, texts, indices, context, force=False):
-    """Encode or reuse one ordered text block, retaining honest timing provenance."""
+    """Return dense features (len(texts), 384) and a timing/cache event.
+
+    Feature extraction uses text, never target labels. A valid cache hit returns
+    the same ordered feature rows and their historical extraction timing; it is
+    not a fresh measurement of encoder speed. New encodings remain frozen.
+    """
     # The cache key covers text content/order, source row IDs, dataset fingerprint,
     # pinned model revision, encoding settings, device, and package versions.
     # A different subset or configuration cannot accidentally reuse wrong rows.
-    text_digest = hashlib.sha256(json.dumps(texts, ensure_ascii=False).encode("utf-8")).hexdigest()
+    text_digest = hashlib.sha256(
+        json.dumps(texts, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
     identity = dict(context, indices=list(indices), text_sha256=text_digest)
-    key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode("utf-8")).hexdigest()
+    key = hashlib.sha256(
+        json.dumps(identity, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     EMBEDDING_CACHE.mkdir(parents=True, exist_ok=True)
     array_path = EMBEDDING_CACHE / f"{key}.npy"
     metadata_path = EMBEDDING_CACHE / f"{key}.json"
@@ -210,26 +262,41 @@ def embedding_block(model, texts, indices, context, force=False):
         seconds = float(saved["extraction_seconds"])
         if not np.isfinite(seconds) or seconds < 0:
             raise ValueError("Invalid cached extraction timing.")
-        return features, dict(key=key, cache_hit=True, measured_extraction_seconds=seconds,
-                              compute_this_call_seconds=0.0,
-                              cache_read_seconds=time.perf_counter() - started,
-                              cache_write_seconds=0.0, measured_at=saved["measured_at"])
+        return features, dict(
+            key=key,
+            cache_hit=True,
+            measured_extraction_seconds=seconds,
+            compute_this_call_seconds=0.0,
+            cache_read_seconds=time.perf_counter() - started,
+            cache_write_seconds=0.0,
+            measured_at=saved["measured_at"],
+        )
 
     # GPU operations are asynchronous. Synchronize on both timing boundaries so
     # elapsed seconds include completed computation, not just queued CUDA work.
     torch.cuda.synchronize(DEVICE)
     started = time.perf_counter()
     with torch.inference_mode():
-        features = model.encode(texts, batch_size=BATCH_SIZE, device=DEVICE,
-                                show_progress_bar=False, convert_to_numpy=True,
-                                normalize_embeddings=True, precision="float32")
+        features = model.encode(
+            texts,
+            batch_size=BATCH_SIZE,
+            device=DEVICE,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+            precision="float32",
+        )
     torch.cuda.synchronize(DEVICE)
     seconds = time.perf_counter() - started
     validate_embeddings(features, len(texts))
     # This measurement includes CPU tokenization, GPU forward computation, and
     # transfer to a CPU NumPy array. It excludes model load, cache I/O, and LR fit.
-    saved = dict(identity=identity, extraction_seconds=seconds, measured_at=utc_now(),
-                 array_sha256=hashlib.sha256(features.tobytes()).hexdigest())
+    saved = dict(
+        identity=identity,
+        extraction_seconds=seconds,
+        measured_at=utc_now(),
+        array_sha256=hashlib.sha256(features.tobytes()).hexdigest(),
+    )
     started = time.perf_counter()
     # Replace each file only after its temporary write finishes. A missing half
     # of a cache pair is recomputed; inconsistent existing pairs fail visibly.
@@ -240,14 +307,29 @@ def embedding_block(model, texts, indices, context, force=False):
     temporary_metadata = metadata_path.with_suffix(".tmp.json")
     save_json(temporary_metadata, saved)
     temporary_metadata.replace(metadata_path)
-    return features, dict(key=key, cache_hit=False, measured_extraction_seconds=seconds,
-                          compute_this_call_seconds=seconds, cache_read_seconds=0.0,
-                          cache_write_seconds=time.perf_counter() - started,
-                          measured_at=saved["measured_at"])
+    return features, dict(
+        key=key,
+        cache_hit=False,
+        measured_extraction_seconds=seconds,
+        compute_this_call_seconds=seconds,
+        cache_read_seconds=0.0,
+        cache_write_seconds=time.perf_counter() - started,
+        measured_at=saved["measured_at"],
+    )
 
 
-def fit_and_evaluate(name, size, train_features, train_labels, validation_features,
-                     validation_labels, validation_texts, validation_indices, class_names, run_dir):
+def fit_and_evaluate(
+    name,
+    size,
+    train_features,
+    train_labels,
+    validation_features,
+    validation_labels,
+    validation_texts,
+    validation_indices,
+    class_names,
+    run_dir,
+):
     """Fit standard multiclass LR and save held-out predictions/error analysis."""
     # Both sparse TF-IDF and dense embeddings are numeric matrices (n samples,
     # d features), which is all Logistic Regression needs. Their d values differ,
@@ -272,82 +354,160 @@ def fit_and_evaluate(name, size, train_features, train_labels, validation_featur
     # Accuracy is the fraction of correct labels. Macro-F1 averages the four
     # per-class F1 scores equally; it exposes weak class performance that a single
     # overall accuracy can hide. Validation labels are used here, never in fit().
-    result = dict(representation=name, train_size=size, validation_size=len(validation_labels),
-                  seed=SEED, preliminary=True,
-                  validation_accuracy=float(accuracy_score(validation_labels, predictions)),
-                  validation_macro_f1=float(f1_score(validation_labels, predictions,
-                                                     labels=CLASS_IDS, average="macro", zero_division=0)),
-                  lr_training_seconds=training_seconds, prediction_seconds=prediction_seconds,
-                  feature_dimension=int(train_features.shape[1]),
-                  lr_iterations=int(np.max(classifier.n_iter_)),
-                  error_count=int(np.sum(predictions != validation_labels)))
+    result = dict(
+        representation=name,
+        train_size=size,
+        validation_size=len(validation_labels),
+        seed=SEED,
+        preliminary=True,
+        validation_accuracy=float(accuracy_score(validation_labels, predictions)),
+        validation_macro_f1=float(
+            f1_score(
+                validation_labels,
+                predictions,
+                labels=CLASS_IDS,
+                average="macro",
+                zero_division=0,
+            )
+        ),
+        lr_training_seconds=training_seconds,
+        prediction_seconds=prediction_seconds,
+        feature_dimension=int(train_features.shape[1]),
+        lr_iterations=int(np.max(classifier.n_iter_)),
+        error_count=int(np.sum(predictions != validation_labels)),
+    )
     prefix = f"{name}_{size}"
     prediction_rows = []
     for position, row_id in enumerate(validation_indices):
         true_label = int(validation_labels[position])
         predicted = int(predictions[position])
-        prediction_rows.append(dict(dataset_row=row_id, true_label=true_label,
-                                    true_class=class_names[true_label], predicted_label=predicted,
-                                    predicted_class=class_names[predicted], correct=(true_label == predicted),
-                                    predicted_probability=float(np.max(probabilities[position])),
-                                    text_preview=" ".join(validation_texts[position].split())[:240]))
+        prediction_rows.append(
+            dict(
+                dataset_row=row_id,
+                true_label=true_label,
+                true_class=class_names[true_label],
+                predicted_label=predicted,
+                predicted_class=class_names[predicted],
+                correct=(true_label == predicted),
+                predicted_probability=float(np.max(probabilities[position])),
+                text_preview=" ".join(validation_texts[position].split())[:240],
+            )
+        )
     columns = list(prediction_rows[0])
     save_csv(run_dir / f"{prefix}_predictions.csv", prediction_rows, columns)
     errors = [row for row in prediction_rows if not row["correct"]]
     save_csv(run_dir / f"{prefix}_errors.csv", errors, columns)
-    save_json(run_dir / f"{prefix}_diagnostics.json", dict(
-        class_names=class_names, confusion_matrix_rows="true", confusion_matrix_columns="predicted",
-        confusion_matrix=confusion_matrix(validation_labels, predictions, labels=CLASS_IDS).tolist(),
-        classification_report=classification_report(validation_labels, predictions,
-            labels=CLASS_IDS, target_names=class_names, output_dict=True, zero_division=0),
-        learned_coefficient_shape=list(classifier.coef_.shape),
-        learned_intercept_shape=list(classifier.intercept_.shape)))
-    print(f"{name}, n={size}: accuracy={result['validation_accuracy']:.4f}, "
-          f"macro-F1={result['validation_macro_f1']:.4f}, errors={len(errors)}")
+    save_json(
+        run_dir / f"{prefix}_diagnostics.json",
+        dict(
+            class_names=class_names,
+            confusion_matrix_rows="true",
+            confusion_matrix_columns="predicted",
+            confusion_matrix=confusion_matrix(
+                validation_labels, predictions, labels=CLASS_IDS
+            ).tolist(),
+            classification_report=classification_report(
+                validation_labels,
+                predictions,
+                labels=CLASS_IDS,
+                target_names=class_names,
+                output_dict=True,
+                zero_division=0,
+            ),
+            learned_coefficient_shape=list(classifier.coef_.shape),
+            learned_intercept_shape=list(classifier.intercept_.shape),
+        ),
+    )
+    print(
+        f"{name}, n={size}: accuracy={result['validation_accuracy']:.4f}, "
+        f"macro-F1={result['validation_macro_f1']:.4f}, errors={len(errors)}"
+    )
     for error in errors[:3]:
-        print(f"  Row {error['dataset_row']}: {error['true_class']} -> "
-              f"{error['predicted_class']} | {error['text_preview'][:120]}")
+        print(
+            f"  Row {error['dataset_row']}: {error['true_class']} -> "
+            f"{error['predicted_class']} | {error['text_preview'][:120]}"
+        )
     return result
 
 
-def save_comparison_figure(rows, path):
+def save_comparison_figure(rows: list[dict], path: Path | str) -> None:
     """Plot actual validation scores only; a single seed has no error bars."""
     # A Figure with an Agg canvas saves a PNG without changing Spyder's GUI backend.
     figure = Figure(figsize=(10, 4.5), layout="constrained")
     FigureCanvasAgg(figure)
     axes = figure.subplots(1, 2)
-    for axis, metric, title in zip(axes, ["validation_accuracy", "validation_macro_f1"],
-                                  ["Validation accuracy", "Validation macro-F1"]):
+    for axis, metric, title in zip(
+        axes,
+        ["validation_accuracy", "validation_macro_f1"],
+        ["Validation accuracy", "Validation macro-F1"],
+    ):
         for name, color in [("tfidf", "#2563eb"), ("minilm", "#d97706")]:
-            selected = sorted([row for row in rows if row["representation"] == name],
-                              key=lambda row: row["train_size"])
-            axis.plot([row["train_size"] for row in selected], [row[metric] for row in selected],
-                      marker="o", color=color, label=f"{name.upper()} + LR")
-        axis.set(title=title, xlabel="Labeled training examples", ylabel="Score", ylim=(0, 1))
+            selected = sorted(
+                [row for row in rows if row["representation"] == name],
+                key=lambda row: row["train_size"],
+            )
+            axis.plot(
+                [row["train_size"] for row in selected],
+                [row[metric] for row in selected],
+                marker="o",
+                color=color,
+                label=f"{name.upper()} + LR",
+            )
+        axis.set(
+            title=title, xlabel="Labeled training examples", ylabel="Score", ylim=(0, 1)
+        )
         axis.set_xticks(TRAIN_SIZES)
         axis.grid(alpha=0.25)
         axis.legend()
-    figure.suptitle("Preliminary pilot: seed 42, fixed validation n=800; no test evaluation")
+    figure.suptitle(
+        "Preliminary pilot: seed 42, fixed validation n=800; no test evaluation"
+    )
     figure.savefig(path, dpi=160)
 
 
-def main():
+def main() -> None:
     """Run four controlled experiments and write a separate folder per execution."""
     run_dir = RESULTS_ROOT / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
     run_dir.mkdir(parents=True, exist_ok=False)
     metadata_path = run_dir / "run_metadata.json"
-    packages = {name: version(name) for name in ["numpy", "torch", "datasets", "sentence-transformers",
-                                                "transformers", "scikit-learn", "matplotlib"]}
-    metadata = dict(status="running", started_at=utc_now(), preliminary_single_seed=True,
-                    seed=SEED, python=sys.version, executable=sys.executable, packages=packages,
-                    platform=platform.platform(), cpu=platform.processor(), cpu_count=os.cpu_count(),
-                    dataset=DATASET_NAME, dataset_revision=DATASET_REVISION, split="train",
-                    model=MODEL_NAME, model_revision=MODEL_REVISION,
-                    dataset_cache=str(DATASET_CACHE), model_cache=str(MODEL_CACHE),
-                    embedding_cache=str(EMBEDDING_CACHE), classifier_settings=LR_SETTINGS,
-                    tfidf_settings=TFIDF_SETTINGS, import_seconds=IMPORT_SECONDS,
-                    script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                    setup_timings={}, feature_events=[])
+    packages = {
+        name: version(name)
+        for name in [
+            "numpy",
+            "torch",
+            "datasets",
+            "sentence-transformers",
+            "transformers",
+            "scikit-learn",
+            "matplotlib",
+        ]
+    }
+    metadata = dict(
+        status="running",
+        started_at=utc_now(),
+        preliminary_single_seed=True,
+        seed=SEED,
+        python=sys.version,
+        executable=sys.executable,
+        packages=packages,
+        platform=platform.platform(),
+        cpu=platform.processor(),
+        cpu_count=os.cpu_count(),
+        dataset=DATASET_NAME,
+        dataset_revision=DATASET_REVISION,
+        split="train",
+        model=MODEL_NAME,
+        model_revision=MODEL_REVISION,
+        dataset_cache=str(DATASET_CACHE),
+        model_cache=str(MODEL_CACHE),
+        embedding_cache=str(EMBEDDING_CACHE),
+        classifier_settings=LR_SETTINGS,
+        tfidf_settings=TFIDF_SETTINGS,
+        import_seconds=IMPORT_SECONDS,
+        script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        setup_timings={},
+        feature_events=[],
+    )
     save_json(metadata_path, metadata)
     stage = "CUDA verification"
     try:
@@ -357,7 +517,9 @@ def main():
         if not DATASET_CACHE.is_absolute():
             raise ValueError("HF_DATASETS_CACHE must be a short absolute path.")
         if not torch.cuda.is_available():
-            raise RuntimeError("CUDA is required for this pilot. Check the Spyder interpreter/driver.")
+            raise RuntimeError(
+                "CUDA is required for this pilot. Check the Spyder interpreter/driver."
+            )
         torch.manual_seed(SEED)
         torch.cuda.manual_seed_all(SEED)
         torch.cuda.synchronize(DEVICE)
@@ -369,24 +531,41 @@ def main():
         DATASET_CACHE.mkdir(parents=True, exist_ok=True)
         started = time.perf_counter()
         # Request only train. No test labels/text are used for any pilot decision.
-        dataset = load_dataset(DATASET_NAME, split="train", revision=DATASET_REVISION,
-                               cache_dir=str(DATASET_CACHE))
-        metadata["setup_timings"]["dataset_load_seconds_including_possible_download"] = time.perf_counter() - started
+        dataset = load_dataset(
+            DATASET_NAME,
+            split="train",
+            revision=DATASET_REVISION,
+            cache_dir=str(DATASET_CACHE),
+        )
+        metadata["setup_timings"][
+            "dataset_load_seconds_including_possible_download"
+        ] = (time.perf_counter() - started)
         metadata["dataset_fingerprint"] = dataset._fingerprint
         class_names = list(dataset.features["label"].names)
         # Reading this one small integer column is not full-text preprocessing.
         labels = np.asarray(dataset["label"], dtype=np.int64)
         training_indices, validation_indices = sample_indices(labels)
         validation_texts, validation_labels = select_rows(dataset, validation_indices)
-        training_data = {size: select_rows(dataset, training_indices[size]) for size in TRAIN_SIZES}
-        manifest = dict(seed=SEED, dataset_revision=DATASET_REVISION,
-                        dataset_fingerprint=dataset._fingerprint, source_split="train",
-                        class_names=class_names, validation_indices=validation_indices,
-                        validation_labels=validation_labels.tolist(),
-                        training_indices=training_indices,
-                        training_labels={size: training_data[size][1].tolist() for size in TRAIN_SIZES})
+        training_data = {
+            size: select_rows(dataset, training_indices[size]) for size in TRAIN_SIZES
+        }
+        manifest = dict(
+            seed=SEED,
+            dataset_revision=DATASET_REVISION,
+            dataset_fingerprint=dataset._fingerprint,
+            source_split="train",
+            class_names=class_names,
+            validation_indices=validation_indices,
+            validation_labels=validation_labels.tolist(),
+            training_indices=training_indices,
+            training_labels={
+                size: training_data[size][1].tolist() for size in TRAIN_SIZES
+            },
+        )
         save_json(run_dir / "sample_manifest.json", manifest)
-        print("Balanced, disjoint validation: 800 rows; nested training: 100 and 400 rows.")
+        print(
+            "Balanced, disjoint validation: 800 rows; nested training: 100 and 400 rows."
+        )
 
         # The same saved row lists and validation texts feed BOTH representations.
         # Any difference in scores therefore cannot be attributed to different
@@ -395,23 +574,44 @@ def main():
         for size in TRAIN_SIZES:
             stage = f"TF-IDF experiment with {size} training rows"
             texts, targets = training_data[size]
-            train_x, validation_x, vectorizer, train_time, val_time = tfidf_features(texts, validation_texts)
-            result = fit_and_evaluate("tfidf", size, train_x, targets, validation_x, validation_labels,
-                                      validation_texts, validation_indices, class_names, run_dir)
-            result.update(train_feature_seconds=train_time, validation_feature_seconds=val_time,
-                          feature_extraction_seconds=train_time + val_time,
-                          feature_compute_this_run_seconds=train_time + val_time,
-                          feature_cache_read_seconds=0.0, feature_cache_write_seconds=0.0,
-                          train_cache_hit=False, validation_cache_hit=False,
-                          feature_timing_origin="measured_now")
+            train_x, validation_x, vectorizer, train_time, val_time = tfidf_features(
+                texts, validation_texts
+            )
+            result = fit_and_evaluate(
+                "tfidf",
+                size,
+                train_x,
+                targets,
+                validation_x,
+                validation_labels,
+                validation_texts,
+                validation_indices,
+                class_names,
+                run_dir,
+            )
+            result.update(
+                train_feature_seconds=train_time,
+                validation_feature_seconds=val_time,
+                feature_extraction_seconds=train_time + val_time,
+                feature_compute_this_run_seconds=train_time + val_time,
+                feature_cache_read_seconds=0.0,
+                feature_cache_write_seconds=0.0,
+                train_cache_hit=False,
+                validation_cache_hit=False,
+                feature_timing_origin="measured_now",
+            )
             results.append(result)
 
         stage = "frozen MiniLM loading and warmup"
         MODEL_CACHE.mkdir(parents=True, exist_ok=True)
         torch.cuda.synchronize(DEVICE)
         started = time.perf_counter()
-        model = SentenceTransformer(MODEL_NAME, revision=MODEL_REVISION,
-                                    cache_folder=str(MODEL_CACHE), device=DEVICE)
+        model = SentenceTransformer(
+            MODEL_NAME,
+            revision=MODEL_REVISION,
+            cache_folder=str(MODEL_CACHE),
+            device=DEVICE,
+        )
         model.eval()
         # Disabling gradients plus inference_mode means no Transformer parameters
         # are learned. Only the later Logistic Regression coefficients/intercepts
@@ -419,22 +619,42 @@ def main():
         for parameter in model.parameters():
             parameter.requires_grad_(False)
         torch.cuda.synchronize(DEVICE)
-        metadata["setup_timings"]["model_load_seconds_including_possible_download"] = time.perf_counter() - started
+        metadata["setup_timings"]["model_load_seconds_including_possible_download"] = (
+            time.perf_counter() - started
+        )
         metadata["max_sequence_length"] = model.max_seq_length
         if model.get_sentence_embedding_dimension() != EMBEDDING_DIMENSION:
-            raise ValueError("The selected MiniLM model must output 384-dimensional vectors.")
+            raise ValueError(
+                "The selected MiniLM model must output 384-dimensional vectors."
+            )
         started = time.perf_counter()
         with torch.inference_mode():
             # Warmup initializes CUDA inference paths without reading held-out data.
-            model.encode(["News classification pilot warmup."], device=DEVICE,
-                         convert_to_numpy=True, show_progress_bar=False)
+            model.encode(
+                ["News classification pilot warmup."],
+                device=DEVICE,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
         torch.cuda.synchronize(DEVICE)
-        metadata["setup_timings"]["model_warmup_seconds"] = time.perf_counter() - started
-        context = dict(cache_schema=1, model=MODEL_NAME, revision=MODEL_REVISION,
-                       dataset_fingerprint=dataset._fingerprint, source_split="train",
-                       normalize_embeddings=True, precision="float32", batch_size=BATCH_SIZE,
-                       max_sequence_length=model.max_seq_length, device=DEVICE, gpu=metadata["gpu"],
-                       cuda_build=metadata["cuda_build"], packages=packages)
+        metadata["setup_timings"]["model_warmup_seconds"] = (
+            time.perf_counter() - started
+        )
+        context = dict(
+            cache_schema=1,
+            model=MODEL_NAME,
+            revision=MODEL_REVISION,
+            dataset_fingerprint=dataset._fingerprint,
+            source_split="train",
+            normalize_embeddings=True,
+            precision="float32",
+            batch_size=BATCH_SIZE,
+            max_sequence_length=model.max_seq_length,
+            device=DEVICE,
+            gpu=metadata["gpu"],
+            cuda_build=metadata["cuda_build"],
+            packages=packages,
+        )
 
         # Validation vectors do not depend on training labels/subset size, so one
         # extraction serves both MiniLM experiments. Its measured time is included
@@ -443,49 +663,106 @@ def main():
         # to avoid inventing a 100-row extraction time by prorating the 400-row time.
         stage = "MiniLM validation feature extraction"
         validation_x, validation_event = embedding_block(
-            model, validation_texts, validation_indices, context, FORCE_RECOMPUTE_EMBEDDINGS)
+            model,
+            validation_texts,
+            validation_indices,
+            context,
+            FORCE_RECOMPUTE_EMBEDDINGS,
+        )
         for size in TRAIN_SIZES:
             stage = f"MiniLM experiment with {size} training rows"
             texts, targets = training_data[size]
-            train_x, train_event = embedding_block(model, texts, training_indices[size], context,
-                                                    FORCE_RECOMPUTE_EMBEDDINGS)
+            train_x, train_event = embedding_block(
+                model,
+                texts,
+                training_indices[size],
+                context,
+                FORCE_RECOMPUTE_EMBEDDINGS,
+            )
             # On the second experiment, validation is reused directly from memory.
             # Mark this reuse explicitly; do not count its compute twice this run.
             val_event = dict(validation_event)
             if size != TRAIN_SIZES[0]:
-                val_event.update(cache_hit=True, compute_this_call_seconds=0.0,
-                                 cache_read_seconds=0.0, cache_write_seconds=0.0)
-            metadata["feature_events"].append(dict(train_size=size, train=train_event, validation=val_event))
-            result = fit_and_evaluate("minilm", size, train_x, targets, validation_x, validation_labels,
-                                      validation_texts, validation_indices, class_names, run_dir)
-            result.update(train_feature_seconds=train_event["measured_extraction_seconds"],
-                          validation_feature_seconds=val_event["measured_extraction_seconds"],
-                          feature_extraction_seconds=train_event["measured_extraction_seconds"] + val_event["measured_extraction_seconds"],
-                          feature_compute_this_run_seconds=train_event["compute_this_call_seconds"] + val_event["compute_this_call_seconds"],
-                          feature_cache_read_seconds=train_event["cache_read_seconds"] + val_event["cache_read_seconds"],
-                          feature_cache_write_seconds=train_event["cache_write_seconds"] + val_event["cache_write_seconds"],
-                          train_cache_hit=train_event["cache_hit"], validation_cache_hit=val_event["cache_hit"],
-                          feature_timing_origin="includes_reused_measurement" if train_event["cache_hit"] or val_event["cache_hit"] else "measured_now")
+                val_event.update(
+                    cache_hit=True,
+                    compute_this_call_seconds=0.0,
+                    cache_read_seconds=0.0,
+                    cache_write_seconds=0.0,
+                )
+            metadata["feature_events"].append(
+                dict(train_size=size, train=train_event, validation=val_event)
+            )
+            result = fit_and_evaluate(
+                "minilm",
+                size,
+                train_x,
+                targets,
+                validation_x,
+                validation_labels,
+                validation_texts,
+                validation_indices,
+                class_names,
+                run_dir,
+            )
+            result.update(
+                train_feature_seconds=train_event["measured_extraction_seconds"],
+                validation_feature_seconds=val_event["measured_extraction_seconds"],
+                feature_extraction_seconds=train_event["measured_extraction_seconds"]
+                + val_event["measured_extraction_seconds"],
+                feature_compute_this_run_seconds=train_event[
+                    "compute_this_call_seconds"
+                ]
+                + val_event["compute_this_call_seconds"],
+                feature_cache_read_seconds=train_event["cache_read_seconds"]
+                + val_event["cache_read_seconds"],
+                feature_cache_write_seconds=train_event["cache_write_seconds"]
+                + val_event["cache_write_seconds"],
+                train_cache_hit=train_event["cache_hit"],
+                validation_cache_hit=val_event["cache_hit"],
+                feature_timing_origin=(
+                    "includes_reused_measurement"
+                    if train_event["cache_hit"] or val_event["cache_hit"]
+                    else "measured_now"
+                ),
+            )
             results.append(result)
 
         stage = "saving completed pilot results"
         save_csv(run_dir / "metrics.csv", results, list(results[0]))
         save_json(run_dir / "metrics.json", results)
         save_comparison_figure(results, run_dir / "performance_comparison.png")
-        metadata.update(status="complete", finished_at=utc_now(), experiment_count=len(results))
+        metadata.update(
+            status="complete", finished_at=utc_now(), experiment_count=len(results)
+        )
         save_json(metadata_path, metadata)
         print("\nPILOT COMPLETE. Results saved to:", run_dir)
-        print("Preliminary single-seed validation results only; no statistical superiority claim.")
-        print("Review errors, timing provenance, and regularization before interpreting differences.")
+        print(
+            "Preliminary single-seed validation results only; no statistical superiority claim."
+        )
+        print(
+            "Review errors, timing provenance, and regularization before interpreting differences."
+        )
     except Exception as error:
-        metadata.update(status="failed", failed_stage=stage,
-                        error=f"{type(error).__name__}: {error}", finished_at=utc_now())
+        metadata.update(
+            status="failed",
+            failed_stage=stage,
+            error=f"{type(error).__name__}: {error}",
+            finished_at=utc_now(),
+        )
         save_json(metadata_path, metadata)
         print(f"\nPILOT FAILED during {stage}: {type(error).__name__}: {error}")
-        print("Any partial files belong to a failed run; do not present them as a completed comparison.")
-        print("For download/path errors, check connectivity, the short dataset cache, and disk space.")
-        print("For CUDA errors, check the interpreter, GPU memory, and driver; keep existing packages.")
-        print("For a cache checksum error, set FORCE_RECOMPUTE_EMBEDDINGS=True and rerun.")
+        print(
+            "Any partial files belong to a failed run; do not present them as a completed comparison."
+        )
+        print(
+            "For download/path errors, check connectivity, the short dataset cache, and disk space."
+        )
+        print(
+            "For CUDA errors, check the interpreter, GPU memory, and driver; keep existing packages."
+        )
+        print(
+            "For a cache checksum error, set FORCE_RECOMPUTE_EMBEDDINGS=True and rerun."
+        )
         raise
 
 

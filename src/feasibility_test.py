@@ -2,7 +2,7 @@
 
 Research question: do pretrained text representations improve news classification
 over TF-IDF when only a small amount of labeled training data is available?
-Eventually, we will compare TF-IDF + Logistic Regression with frozen MiniLM
+The supervised scripts compare TF-IDF + Logistic Regression with frozen MiniLM
 embeddings + Logistic Regression. This script checks only the prerequisites:
 the Python/GPU environment, access to AG News, and encoding five news articles.
 
@@ -35,7 +35,7 @@ try:
     from sentence_transformers import SentenceTransformer
 except Exception:
     print("Dependency import failed. Python executable:", sys.executable)
-    print(r"Expected environment: D:\Anaconda\envs\icsi436-p\python.exe")
+    print("Expected environment: the existing icsi436-p Conda interpreter.")
     print("Check Spyder's interpreter and restart its kernel before changing packages.")
     raise
 
@@ -50,9 +50,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # directory by default; HF_DATASETS_CACHE can select another short absolute path.
 # Read the environment variable ourselves and pass cache_dir explicitly below:
 # this also honors a setting made in Spyder after datasets was already imported.
-DATASET_CACHE = Path(os.environ.get("HF_DATASETS_CACHE") or r"D:\hf_cache\datasets").expanduser()
+DATASET_CACHE = Path(
+    os.environ.get("HF_DATASETS_CACHE") or r"D:\hf_cache\datasets"
+).expanduser()
 if not DATASET_CACHE.is_absolute():
-    raise ValueError("HF_DATASETS_CACHE must be a short absolute path, such as D:/hf_cache/datasets.")
+    raise ValueError(
+        "HF_DATASETS_CACHE must be a short absolute path, such as D:/hf_cache/datasets."
+    )
 
 MODEL_CACHE = PROJECT_ROOT / ".cache" / "sentence_transformers"
 DATASET_NAME = "fancyzhx/ag_news"
@@ -62,7 +66,7 @@ EXPECTED_DIMENSION = 384
 RANDOM_SEED = 436
 
 
-def verify_environment():
+def verify_environment() -> str:
     """Print environment details and select a usable computation device."""
     print("\nPart A - Environment verification")
     print("Python executable:", sys.executable)
@@ -84,11 +88,15 @@ def verify_environment():
         device = "cuda:0"
         properties = torch.cuda.get_device_properties(device)
         free_bytes, total_bytes = torch.cuda.mem_get_info(device)
-        gib = 1024 ** 3
+        gib = 1024**3
         print("GPU model:", properties.name)
         print(f"GPU physical memory: {properties.total_memory / gib:.2f} GiB")
-        print(f"GPU free / total memory: {free_bytes / gib:.2f} / {total_bytes / gib:.2f} GiB")
-        print(f"PyTorch allocated memory: {torch.cuda.memory_allocated(device) / gib:.4f} GiB")
+        print(
+            f"GPU free / total memory: {free_bytes / gib:.2f} / {total_bytes / gib:.2f} GiB"
+        )
+        print(
+            f"PyTorch allocated memory: {torch.cuda.memory_allocated(device) / gib:.4f} GiB"
+        )
         matrix = torch.ones((2, 2), device=device)
         product = matrix @ matrix
         # CUDA normally queues work asynchronously. Synchronization makes sure
@@ -107,7 +115,7 @@ def verify_environment():
         return "cpu"
 
 
-def inspect_dataset():
+def inspect_dataset() -> tuple[list[str], list[int]]:
     """Load AG News and return five unmodified training texts and their labels."""
     print("\nPart B - AG News dataset")
     print("Dataset source:", DATASET_NAME)
@@ -164,7 +172,7 @@ def inspect_dataset():
     return texts, labels
 
 
-def extract_embeddings(texts, device):
+def extract_embeddings(texts: list[str], device: str) -> np.ndarray:
     """Load a frozen pretrained encoder and transform only the selected texts."""
     print("\nPart C - Pretrained MiniLM feature extraction")
     print("Selected device:", device)
@@ -179,7 +187,9 @@ def extract_embeddings(texts, device):
     if device.startswith("cuda"):
         torch.cuda.synchronize(device)
     loading_start = time.perf_counter()
-    model = SentenceTransformer(MODEL_NAME, device=device, cache_folder=str(MODEL_CACHE))
+    model = SentenceTransformer(
+        MODEL_NAME, device=device, cache_folder=str(MODEL_CACHE)
+    )
     model.eval()
     # eval() disables training-time behavior such as dropout; it does not itself
     # freeze weights. requires_grad_(False) makes our frozen-feature intent clear.
@@ -215,11 +225,15 @@ def extract_embeddings(texts, device):
     print(f"Embedding extraction time: {encoding_seconds:.3f} seconds")
     print("Timing includes tokenization, inference, and conversion to a CPU array.")
     print("This first tiny batch is a feasibility check, not a speed benchmark.")
-    print("These vectors are pretrained representations, not classification predictions.")
+    print(
+        "These vectors are pretrained representations, not classification predictions."
+    )
     return embeddings
 
 
-def validate_embeddings(texts, labels, embeddings):
+def validate_embeddings(
+    texts: list[str], labels: list[int], embeddings: np.ndarray
+) -> None:
     """Check the feature matrix before declaring the feasibility test successful."""
     print("\nPart D - Basic validation")
     # The expected matrix has n rows (articles) and 384 columns (features).
@@ -229,7 +243,9 @@ def validate_embeddings(texts, labels, embeddings):
     if embeddings.shape[0] != len(texts) or len(texts) != len(labels):
         raise ValueError("Input text, label, and embedding counts do not match.")
     if embeddings.shape[1] != EXPECTED_DIMENSION:
-        raise ValueError(f"Expected 384 features per article; got {embeddings.shape[1]}.")
+        raise ValueError(
+            f"Expected 384 features per article; got {embeddings.shape[1]}."
+        )
     if not np.issubdtype(embeddings.dtype, np.floating):
         raise ValueError("Expected floating-point numeric embedding values.")
     # NaN and infinity are numeric values but cannot be used reliably as ML
@@ -239,11 +255,14 @@ def validate_embeddings(texts, labels, embeddings):
     print("Embedding array shape:", embeddings.shape)
     print("Embedding vector dimension:", embeddings.shape[1])
     print("Embedding data type:", embeddings.dtype)
-    print("First embedding, first 8 values:", np.array2string(embeddings[0, :8], precision=4))
+    print(
+        "First embedding, first 8 values:",
+        np.array2string(embeddings[0, :8], precision=4),
+    )
     print("Input/output counts match; every embedding value is finite.")
 
 
-def main():
+def main() -> None:
     """Run the four checks in order and retain helpful failure diagnostics."""
     stage = "environment verification"
     device = "not selected"
@@ -261,18 +280,34 @@ def main():
         # so Spyder shows its full traceback and a failed run cannot look passed.
         print(f"\nFEASIBILITY TEST FAILED during {stage}.")
         print(f"{type(error).__name__}: {error}")
-        print("For download errors, check internet access, Hugging Face access, and proxy settings.")
-        print("For file errors, check free disk space and cache directory write permissions.")
+        print(
+            "For download errors, check internet access, Hugging Face access, and proxy settings."
+        )
+        print(
+            "For file errors, check free disk space and cache directory write permissions."
+        )
         if device.startswith("cuda"):
-            print("For CUDA errors, close GPU-heavy applications and restart the Spyder kernel.")
-            print("Check the interpreter and driver before considering package changes.")
-        print("Do not reinstall PyTorch or change CUDA just to troubleshoot a download error.")
+            print(
+                "For CUDA errors, close GPU-heavy applications and restart the Spyder kernel."
+            )
+            print(
+                "Check the interpreter and driver before considering package changes."
+            )
+        print(
+            "Do not reinstall PyTorch or change CUDA just to troubleshoot a download error."
+        )
         raise
 
-    print(f"\nFEASIBILITY TEST PASSED on {device}: five articles produced valid 384-D embeddings.")
+    print(
+        f"\nFEASIBILITY TEST PASSED on {device}: five articles produced valid 384-D embeddings."
+    )
     if device == "cpu":
-        print("CPU feasibility passed; GPU feasibility was not established by this run.")
-    print("No classifier training, fine-tuning, accuracy, or Macro-F1 evaluation was performed.")
+        print(
+            "CPU feasibility passed; GPU feasibility was not established by this run."
+        )
+    print(
+        "No classifier training, fine-tuning, accuracy, or Macro-F1 evaluation was performed."
+    )
 
 
 # Importing this module for inspection does not download data or run the model.

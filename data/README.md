@@ -27,3 +27,12 @@ AG News originates from the AG news corpus collected by Antonio Gulli. The
 classification benchmark is associated with Xiang Zhang, Junbo Zhao, and Yann
 LeCun, *Character-level Convolutional Networks for Text Classification* (2015).
 See the linked dataset card for source details and the hosted dataset version.
+
+## Supervised experiment boundary
+
+The three supervised scripts request only the pinned original training split.
+They use matching balanced training rows and a disjoint validation set; no
+official test examples enter training, hyperparameter decisions, or evaluation.
+The feasibility script above is the only entry point that loads split metadata
+and counts for both splits. See [architecture](../docs/architecture.md) for the
+full workflow and [reproducibility](../docs/reproducibility.md) for cache recovery.
