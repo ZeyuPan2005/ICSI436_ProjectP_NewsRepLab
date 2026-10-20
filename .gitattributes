@@ -1,0 +1,13 @@
+# Normalize maintained code/docs, but never rewrite historical artifact bytes.
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+requirements.txt text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+*.png binary
+*.pdf binary
+*.pptx binary
+results/** -text
+reports/** -text
